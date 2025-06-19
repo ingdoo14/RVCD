@@ -1,10 +1,10 @@
-![main](./assets/main.png)
-
-This repository contains code for our ACL 2025 paper:
+This repository contains code for our ACL 2025 findings accepted paper:
 
 📄 [Retrieval Visual Contrastive Decoding to Mitigate Object Hallucinations in
 Large Vision-Language Models](https://arxiv.org/abs/2505.20569)
+[![arXiv](https://img.shields.io/badge/arXiv-2505.20569-b31b1b.svg)](https://arxiv.org/abs/2505.20569)
 
+![main](./assets/main.png)
 
 # Glimpse
 If your goal here is to briefly verify the implementation of RVCD's overall concept, observe the following file:<br>
