@@ -1,5 +1,11 @@
 ![main](./assets/main.png)
 
+This repository contains code for our ACL 2025 paper:
+
+📄 [Retrieval Visual Contrastive Decoding to Mitigate Object Hallucinations in
+Large Vision-Language Models](https://arxiv.org/abs/2505.20569)
+
+
 # Glimpse
 If your goal here is to briefly verify the implementation of RVCD's overall concept, observe the following file:<br>
 [`/MAIN_CODES/rvcd_generation_chair_bleu.py`](/MAIN_CODES/rvcd_generation_chair_bleu.py)
