@@ -1,6 +1,7 @@
 This repository contains code for our ACL 2025 findings accepted paper:
 
-[![arXiv](https://img.shields.io/badge/arXiv-2505.20569-b31b1b.svg)](https://arxiv.org/abs/2505.20569) [Retrieval Visual Contrastive Decoding to Mitigate Object Hallucinations in
+[![arXiv](https://img.shields.io/badge/arXiv-2505.20569-b31b1b.svg)](https://arxiv.org/abs/2505.20569) 
+[Retrieval Visual Contrastive Decoding to Mitigate Object Hallucinations in
 Large Vision-Language Models](https://arxiv.org/abs/2505.20569)
 
 
