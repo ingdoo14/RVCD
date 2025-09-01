@@ -118,6 +118,16 @@ def apply_mosaic_to_boxes(image, boxes, block_size: int = 15):
         processed[y1:y2, x1:x2] = mosaic
     return processed
 
+def apply_black_mask_to_boxes(image, boxes):
+    processed = image.copy()
+    for bbox in boxes:
+        x1, y1, x2, y2 = map(int, bbox)
+        x1, y1, x2, y2 = _clip_bbox_to_image(processed, x1, y1, x2, y2)
+        if y2 <= y1 or x2 <= x1:
+            continue
+        processed[y1:y2, x1:x2] = 0
+    return processed
+
 def run_inference(model, image_path, postprocess: str = None, blur_ksize: int = 31, mosaic_block_size: int = 15, conf: float = 0.25):
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -142,6 +152,8 @@ def run_inference(model, image_path, postprocess: str = None, blur_ksize: int = 
             image = apply_gaussian_blur_to_boxes(image, bounding_boxes, ksize=blur_ksize)
         elif mode in ["mosaic", "pixelate", "pixelation"]:
             image = apply_mosaic_to_boxes(image, bounding_boxes, block_size=mosaic_block_size)
+        elif mode in ["mask", "blackout", "black"]:
+            image = apply_black_mask_to_boxes(image, bounding_boxes)
 
     return bounding_boxes, probabilities, entity_names, image
 
