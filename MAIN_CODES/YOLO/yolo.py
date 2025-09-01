@@ -68,10 +68,60 @@ def load_yolo_model(model_path:str = 'yolov8x.pt'):
     model = YOLO(model_path) 
     return model
 
-def run_inference(model, image_path):
+def _clip_bbox_to_image(image, x1, y1, x2, y2):
+    h, w = image.shape[:2]
+    x1 = max(0, min(int(x1), w - 1))
+    y1 = max(0, min(int(y1), h - 1))
+    x2 = max(0, min(int(x2), w))
+    y2 = max(0, min(int(y2), h))
+    # ensure proper ordering
+    if x2 < x1:
+        x1, x2 = x2, x1
+    if y2 < y1:
+        y1, y2 = y2, y1
+    return x1, y1, x2, y2
+
+def _ensure_odd(value:int) -> int:
+    return value if value % 2 == 1 else value + 1
+
+def apply_gaussian_blur_to_boxes(image, boxes, ksize: int = 31, sigmaX: int = 0):
+    processed = image.copy()
+    base_kernel = max(1, _ensure_odd(int(ksize)))
+    for bbox in boxes:
+        x1, y1, x2, y2 = map(int, bbox)
+        x1, y1, x2, y2 = _clip_bbox_to_image(processed, x1, y1, x2, y2)
+        if y2 <= y1 or x2 <= x1:
+            continue
+        region = processed[y1:y2, x1:x2]
+        h, w = region.shape[:2]
+        # Adjust kernel to fit region size while keeping it odd and >= 1
+        k = min(base_kernel, h if h % 2 == 1 else max(1, h - 1), w if w % 2 == 1 else max(1, w - 1))
+        k = max(1, _ensure_odd(k))
+        blurred = cv2.GaussianBlur(region, (k, k), sigmaX)
+        processed[y1:y2, x1:x2] = blurred
+    return processed
+
+def apply_mosaic_to_boxes(image, boxes, block_size: int = 15):
+    processed = image.copy()
+    block_size = max(1, int(block_size))
+    for bbox in boxes:
+        x1, y1, x2, y2 = map(int, bbox)
+        x1, y1, x2, y2 = _clip_bbox_to_image(processed, x1, y1, x2, y2)
+        if y2 <= y1 or x2 <= x1:
+            continue
+        region = processed[y1:y2, x1:x2]
+        h, w = region.shape[:2]
+        small_w = max(1, w // block_size)
+        small_h = max(1, h // block_size)
+        small = cv2.resize(region, (small_w, small_h), interpolation=cv2.INTER_LINEAR)
+        mosaic = cv2.resize(small, (w, h), interpolation=cv2.INTER_NEAREST)
+        processed[y1:y2, x1:x2] = mosaic
+    return processed
+
+def run_inference(model, image_path, postprocess: str = None, blur_ksize: int = 31, mosaic_block_size: int = 15, conf: float = 0.25):
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    results = model(image, conf=0.25)
+    results = model(image, conf=conf)
     bounding_boxes = []
     probabilities = []
     entity_names = []
@@ -86,6 +136,13 @@ def run_inference(model, image_path):
             probabilities.append(score)
             entity_names.append(class_name)
 
+    if postprocess is not None:
+        mode = str(postprocess).lower()
+        if mode in ["blur", "gaussian", "gaussian_blur"]:
+            image = apply_gaussian_blur_to_boxes(image, bounding_boxes, ksize=blur_ksize)
+        elif mode in ["mosaic", "pixelate", "pixelation"]:
+            image = apply_mosaic_to_boxes(image, bounding_boxes, block_size=mosaic_block_size)
+
     return bounding_boxes, probabilities, entity_names, image
 
 def draw_boxes(image, bounding_boxes, probabilities, entity_names):
@@ -98,7 +155,7 @@ def draw_boxes(image, bounding_boxes, probabilities, entity_names):
 
 ##################################################
 
-def main(image_path, model_path):
+def main(image_path, model_path, postprocess=None, output_path=None, blur_ksize: int = 31, mosaic_block_size: int = 15, conf: float = 0.25):
     print(f"욜로 : {model_path}")
 
     if model_path == 'yolov3x.pt': #형식 통일을 위함. 
@@ -115,7 +172,14 @@ def main(image_path, model_path):
     
     elif model_path == 'yolov8x.pt':
         model = load_yolo_model(model_path)
-        bounding_boxes, probabilities, entity_names, image = run_inference(model, image_path)
+        bounding_boxes, probabilities, entity_names, image = run_inference(
+            model,
+            image_path,
+            postprocess=postprocess,
+            blur_ksize=blur_ksize,
+            mosaic_block_size=mosaic_block_size,
+            conf=conf,
+        )
         all = []
         for bbox, prob, name in zip(bounding_boxes, probabilities, entity_names):
             # print(f"Entity: {name}, Probability: {prob:.2f}, Bounding Box: {bbox}")
@@ -126,6 +190,11 @@ def main(image_path, model_path):
             if entity not in unique_items or probability > unique_items[entity]:
                 unique_items[entity] = probability
         result = [(entity, probability) for entity, probability in unique_items.items()]
+        if output_path is not None:
+            # Save the possibly post-processed image
+            bgr = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            os.makedirs(os.path.dirname(output_path), exist_ok=True) if os.path.dirname(output_path) else None
+            cv2.imwrite(output_path, bgr)
         
         return result
     else:
